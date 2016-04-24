@@ -13,13 +13,26 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import struct.Constant;
+import struct.InsCode;
 
 public class JavaToHs {
 	private static List<Constant> list;
 	private static String path = "C:\\Users\\liu\\Desktop\\isabelle\\Jinja\\JVM\\haskell\\";
 	private static String filenameTemp;
+
+	private static Map<String, List<String>> classAndMethodsMap = new HashMap<String, List<String>>();
+	private static Map<String, List<String>> classAndfieldsMap = new HashMap<String, List<String>>();
+	private static Map<String, InsCode> InscodeMap = new HashMap<String, InsCode>();
+
+	private static String insKey;
+	private static InsCode insCode;
+	private static String classString = "";
+	private static String methodString = "";
+	private static boolean isCodeBegin = false;
+	private static String code = "";
 
 	/**
 	 * 功能：Java读取txt文件的内容 步骤：1：先获得文件句柄 2：获得文件句柄当做是输入一个字节码流，需要对这个输入流进行读取
@@ -35,7 +48,7 @@ public class JavaToHs {
 				InputStreamReader read = new InputStreamReader(new FileInputStream(file), encoding);// 考虑到编码格式
 				BufferedReader bufferedReader = new BufferedReader(read);
 				String lineTxt = null;
-				while ((lineTxt = bufferedReader.readLine()) != null) {
+				while ((lineTxt = bufferedReader.readLine()) != null || isCodeBegin) {
 					if (lineTxt.equals("Constant pool:")) {
 						list = new ArrayList<>();
 					}
@@ -66,16 +79,104 @@ public class JavaToHs {
 
 						list.add(constant);
 					}
+
+					// 将class,method,field存入map
+					if (lineTxt.contains("{")) {
+						for (Constant constant : list) {
+							if (constant.getKey().equals("Methodref")) {
+								saveMethodsOrFields(constant, classAndMethodsMap);
+							} else if (constant.getKey().equals("Fieldref")) {
+								saveMethodsOrFields(constant, classAndfieldsMap);
+							}
+						}
+					}
+
+					// 将ins存入map
+					if (lineTxt.contains(");")) {
+						if (lineTxt.contains("main")) {
+							insKey = "main";
+						} else {
+							boolean flag = false;
+							for (Entry<String, List<String>> camEntry : classAndMethodsMap.entrySet()) {
+								if (lineTxt.contains(camEntry.getKey())) {
+									if (!classString.contains(camEntry.getKey() + ",")) {
+										insKey = camEntry.getKey();
+										classString = classString + insKey + ",";
+										flag = true;
+									}
+								} else {
+									List<String> methodList = camEntry.getValue();
+									for (String method : methodList) {
+										if (!methodString.toString().contains(method + ",")) {
+											insKey = method;
+											methodString = methodString + insKey + ",";
+											flag = true;
+											break;
+										}
+									}
+								}
+
+								if (flag) {
+									break;
+								}
+							}
+						}
+
+						insCode = new InsCode();
+					}
+
+					if (lineTxt.contains("stack=")) {
+						int[] args = getInitStat(lineTxt);
+						insCode.setStack(args[0]);
+						insCode.setLocals(args[1]);
+						insCode.setArgs_size(args[2]);
+						isCodeBegin = true;
+					}
+
+					if (isCodeBegin && lineTxt.contains(":")) {
+						code = code + lineTxt + "\n";
+					}
+
+					if ((lineTxt.equals("") || lineTxt.isEmpty()||lineTxt.contains("}")) && isCodeBegin) {
+						isCodeBegin = false;
+						insCode.setCode(code.toString());
+						InscodeMap.put(insKey, insCode);
+						code = "";
+					}
+
 					System.out.println(lineTxt);
 				}
 				read.close();
 			} else {
 				System.out.println("找不到指定的文件");
 			}
-		} catch (Exception e) {
+		} catch (
+
+		Exception e) {
 			System.out.println("读取文件内容出错");
 			e.printStackTrace();
 		}
+
+	}
+
+	public static int[] getInitStat(String line) {
+		int[] initArgs = new int[3];
+		int stackStartIndex = line.indexOf("=");
+		int stackEndIndex = line.indexOf(",");
+		int stack = Integer.valueOf(line.substring(stackStartIndex + 1, stackEndIndex));
+		initArgs[0] = stack;
+
+		int localsStartIndex = line.indexOf("=", stackEndIndex);
+		int localsEndIndex = line.indexOf(",", localsStartIndex);
+		int locals = Integer.valueOf(line.substring(localsStartIndex + 1, localsEndIndex));
+		initArgs[1] = locals;
+
+		int argsSizeStartIndex = line.indexOf("=", localsEndIndex);
+		int argsSizeEndIndex = line.length();
+		int argsSize = Integer.valueOf(line.substring(argsSizeStartIndex + 1, argsSizeEndIndex));
+		initArgs[2] = argsSize;
+
+		return initArgs;
 
 	}
 
@@ -184,50 +285,52 @@ public class JavaToHs {
 		return strs;
 	}
 
+	// 用map保存一个类中的方法名和变量名
+	public static Map<String, List<String>> saveMethodsOrFields(Constant c, Map<String, List<String>> map) {
+		String s = c.getValue();
+		int classStartIndex = s.lastIndexOf('/');
+		int classEndIndex = s.indexOf('.');
+		String key = s.substring(classStartIndex + 1, classEndIndex);
+
+		List<String> methodList;
+		if (map.containsKey(key)) {
+			methodList = map.get(key);
+		} else {
+			methodList = new ArrayList<>();
+		}
+
+		int methodStartIndex = classEndIndex + 1;
+		int methodEndIndex = s.indexOf(':');
+		String methodName = s.substring(methodStartIndex, methodEndIndex);
+		methodList.add(methodName);
+
+		map.put(key, methodList);
+
+		return map;
+	}
+
 	public static void main(String[] args) {
-		String filePath = "C:\\workspace\\JvmTest\\src\\code\\add.txt";
+
+		String filename = "add2";
+		String filePath = "C:\\workspace\\JvmTest\\src\\code\\" + filename + ".txt";
 		// "res/";
 		readTxtFile(filePath);
 		// List<String> classes = new ArrayList<>();
 
-		try {
-			for (int i = 0; i < 5; i++) {
-				creatTxtFile("test123");
-				writeTxtFile("显示的是追加的信息" + i);
-				String str = readDate();
-				System.out.println("*********\n" + str);
-			}
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-
-		// Map<String, List<String>> classAndMethodMap = new HashMap<String,
-		// List<String>>();
-		//
-		// // 遍历常量池取得class
-		// for (Constant c : list) {
-		// if (c.getKey().equals("Methodref")) {
-		// String s = c.getValue();
-		// int classStartIndex = s.lastIndexOf('/');
-		// int classEndIndex = s.indexOf('.');
-		// String key = s.substring(classStartIndex + 1, classEndIndex);
-		//
-		// List<String> methodList;
-		// if (classAndMethodMap.containsKey(key)) {
-		// methodList = classAndMethodMap.get(key);
-		// } else {
-		// methodList = new ArrayList<>();
+		// 读写txt测试
+		// try {
+		// for (int i = 0; i < 5; i++) {
+		// creatTxtFile("test123");
+		// writeTxtFile("显示的是追加的信息" + i);
+		// String str = readDate();
+		// System.out.println("*********\n" + str);
 		// }
-		//
-		// int methodStartIndex = classEndIndex + 1;
-		// int methodEndIndex = s.indexOf(':');
-		// String methodName = s.substring(methodStartIndex, methodEndIndex);
-		// methodList.add(methodName);
-		//
-		// classAndMethodMap.put(key, methodList);
+		// } catch (IOException e) {
+		// // TODO Auto-generated catch block
+		// e.printStackTrace();
 		// }
 
+		// 单独读取类名
 		// if (c.getKey().equals("Class")) {
 		// String s = c.getValue();
 		// int classStartIndex = s.lastIndexOf('/');
@@ -238,8 +341,75 @@ public class JavaToHs {
 		//
 		// classes.add(classString);
 		// }
-		// System.out.println("num=" + c.getNum() + ", key=" + c.getKey() + ",
+		// System.out.println("num=" + c.getNum() + ", key=" + c.getKey() +
+		// ",
 		// value=" + c.getValue());
 		// }
+
+		try {
+			StringBuilder s = new StringBuilder();
+			s.append("theory " + filename + "\n");
+			s.append("imports" + "\n");
+			s.append("  \"../Common/SystemClasses\"" + "\n");
+			s.append("  JVMExec" + "\n");
+			s.append("  \"~~/src/HOL/Library/Code_Target_Numeral\"" + "\n");
+			s.append("begin" + "\n" + "\n");
+
+			// 常量池的definition
+			for (Entry<String, List<String>> entry : classAndMethodsMap.entrySet()) {
+				if (!entry.getKey().equals("Object")) {
+					s.append(nameDef(entry.getKey()));
+				}
+
+				for (String method : entry.getValue()) {
+					if (!method.contains("init")) {
+						s.append(nameDef(method));
+					}
+				}
+			}
+
+			// 变量名的definition
+			for (Entry<String, List<String>> fieldEntry : classAndfieldsMap.entrySet()) {
+				for (String field : fieldEntry.getValue()) {
+					s.append(nameDef(field));
+				}
+			}
+
+			// ins的definition
+			for (Entry<String, InsCode> insEntry : InscodeMap.entrySet()) {
+				s.append(InsDef(insEntry.getKey(), insEntry.getValue()));
+			}
+
+			creatTxtFile(filename);
+			writeTxtFile(s.toString());
+			String str = readDate();
+			System.out.println("*********\n" + str);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
+
+	public static String nameDef(String realName) {
+		String defName = realName + "_name";
+		StringBuilder defbuilder = new StringBuilder();
+		defbuilder.append("definition " + defName + " :: string" + "\n");
+		defbuilder.append("  where" + "\n");
+		defbuilder.append("\"" + defName + "==" + "\'\'" + realName + "\'\'\"" + "\n" + "\n");
+
+		return defbuilder.toString();
+
+	}
+
+	public static String InsDef(String realName, InsCode ins) {
+		String defName = realName + "_ins";
+		StringBuilder defbuilder = new StringBuilder();
+		defbuilder.append("definition " + defName + " :: bytecode" + "\n");
+		defbuilder.append("  where" + "\n");
+		defbuilder.append("  \"" + defName + "== [" + "\n" + ins.getCode() + "]\"" + "\n" + "\n");
+
+		return defbuilder.toString();
+
+	}
+
 }
