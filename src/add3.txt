@@ -1,0 +1,147 @@
+Classfile /C:/workspace/JvmTest/src/code/AddExtends.class
+  Last modified 2016-4-25; size 612 bytes
+  MD5 checksum 4a38dc8d7c4e316b120c993d59f18c76
+  Compiled from "AddExtends.java"
+public class code.AddExtends extends code.Add
+  minor version: 0
+  major version: 52
+  flags: ACC_PUBLIC, ACC_SUPER
+Constant pool:
+   #1 = Methodref          #3.#30         // code/Add."<init>":()V
+   #2 = Fieldref           #8.#31         // code/AddExtends.n:I
+   #3 = Class              #32            // code/Add
+   #4 = Fieldref           #8.#33         // code/AddExtends.add:Lcode/Add;
+   #5 = Fieldref           #8.#34         // code/AddExtends.b:Z
+   #6 = Fieldref           #8.#35         // code/AddExtends.c:C
+   #7 = Fieldref           #8.#36         // code/AddExtends.m:I
+   #8 = Class              #37            // code/AddExtends
+   #9 = Utf8               m
+  #10 = Utf8               I
+  #11 = Utf8               n
+  #12 = Utf8               add
+  #13 = Utf8               Lcode/Add;
+  #14 = Utf8               b
+  #15 = Utf8               Z
+  #16 = Utf8               c
+  #17 = Utf8               C
+  #18 = Utf8               <init>
+  #19 = Utf8               ()V
+  #20 = Utf8               Code
+  #21 = Utf8               LineNumberTable
+  #22 = Utf8               plus
+  #23 = Utf8               (II)I
+  #24 = Utf8               StackMapTable
+  #25 = Utf8               Test
+  #26 = Utf8               (Lcode/Add;I)Lcode/Add;
+  #27 = Utf8               <clinit>
+  #28 = Utf8               SourceFile
+  #29 = Utf8               AddExtends.java
+  #30 = NameAndType        #18:#19        // "<init>":()V
+  #31 = NameAndType        #11:#10        // n:I
+  #32 = Utf8               code/Add
+  #33 = NameAndType        #12:#13        // add:Lcode/Add;
+  #34 = NameAndType        #14:#15        // b:Z
+  #35 = NameAndType        #16:#17        // c:C
+  #36 = NameAndType        #9:#10         // m:I
+  #37 = Utf8               code/AddExtends
+{
+  public static int m;
+    descriptor: I
+    flags: ACC_PUBLIC, ACC_STATIC
+
+  int n;
+    descriptor: I
+    flags:
+
+  code.Add add;
+    descriptor: Lcode/Add;
+    flags:
+
+  boolean b;
+    descriptor: Z
+    flags:
+
+  char c;
+    descriptor: C
+    flags:
+
+  public code.AddExtends();
+    descriptor: ()V
+    flags: ACC_PUBLIC
+    Code:
+      stack=3, locals=1, args_size=1
+         0: aload_0
+         1: invokespecial #1                  // Method code/Add."<init>":()V
+         4: aload_0
+         5: iconst_1
+         6: putfield      #2                  // Field n:I
+         9: aload_0
+        10: new           #3                  // class code/Add
+        13: dup
+        14: invokespecial #1                  // Method code/Add."<init>":()V
+        17: putfield      #4                  // Field add:Lcode/Add;
+        20: aload_0
+        21: iconst_1
+        22: putfield      #5                  // Field b:Z
+        25: aload_0
+        26: bipush        113
+        28: putfield      #6                  // Field c:C
+        31: return
+      LineNumberTable:
+        line 3: 0
+        line 5: 4
+        line 6: 9
+        line 7: 20
+        line 8: 25
+
+  public int plus(int, int);
+    descriptor: (II)I
+    flags: ACC_PUBLIC
+    Code:
+      stack=2, locals=4, args_size=3
+         0: iconst_0
+         1: istore_3
+         2: iload_1
+         3: iload_2
+         4: if_icmpne     12
+         7: iload_1
+         8: istore_3
+         9: goto          14
+        12: iload_2
+        13: istore_3
+        14: iload_3
+        15: ireturn
+      LineNumberTable:
+        line 12: 0
+        line 13: 2
+        line 14: 7
+        line 16: 12
+        line 18: 14
+      StackMapTable: number_of_entries = 2
+        frame_type = 252 /* append */
+          offset_delta = 12
+          locals = [ int ]
+        frame_type = 1 /* same */
+
+  public code.Add Test(code.Add, int);
+    descriptor: (Lcode/Add;I)Lcode/Add;
+    flags: ACC_PUBLIC
+    Code:
+      stack=1, locals=3, args_size=3
+         0: aconst_null
+         1: areturn
+      LineNumberTable:
+        line 22: 0
+
+  static {};
+    descriptor: ()V
+    flags: ACC_STATIC
+    Code:
+      stack=1, locals=0, args_size=0
+         0: iconst_2
+         1: putstatic     #7                  // Field m:I
+         4: return
+      LineNumberTable:
+        line 4: 0
+}
+SourceFile: "AddExtends.java"

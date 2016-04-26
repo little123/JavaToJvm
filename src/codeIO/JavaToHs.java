@@ -58,8 +58,7 @@ public class JavaToHs {
 						int numStartIndex = lineTxt.indexOf("#");
 						int numEndIndex = lineTxt.indexOf("= ");
 						String numString = lineTxt.substring(numStartIndex + 1, numEndIndex - 1);
-						int num = Integer.parseInt(numString);
-						constant.setNum(num);
+						constant.setNum(numString);
 
 						int keyStartIndex = numEndIndex;
 						int keyEndIndex = keyStartIndex + 18;
@@ -83,9 +82,9 @@ public class JavaToHs {
 					// 将class,method,field存入map
 					if (lineTxt.contains("{")) {
 						for (Constant constant : list) {
-							if (constant.getKey().equals("Methodref")) {
+							if (constant.getKey().equals("Methodref") && !constant.getValue().contains("java/")) {
 								saveMethodsOrFields(constant, classAndMethodsMap);
-							} else if (constant.getKey().equals("Fieldref")) {
+							} else if (constant.getKey().equals("Fieldref") && !constant.getValue().contains("java/")) {
 								saveMethodsOrFields(constant, classAndfieldsMap);
 							}
 						}
@@ -123,8 +122,54 @@ public class JavaToHs {
 						}
 
 						insCode = new InsCode();
+
+						// 获取方法参数
+						List<String> insParams = new ArrayList<String>();
+						String params = "";
+						int paramsSatarIndex = lineTxt.indexOf('(');
+						int paramsEndIndex = lineTxt.indexOf(')', paramsSatarIndex);
+						params = lineTxt.substring(paramsSatarIndex + 1, paramsEndIndex);
+
+						String[] ps = params.split(",");
+						for (String paramStr : ps) {
+							if (paramStr.trim().equals("int")) {
+								insParams.add("Integer");
+							} else {
+								if (paramStr.contains(".")) {
+									int index = paramStr.lastIndexOf('.');
+									String typeClass = paramStr.substring(index + 1, paramStr.length());
+									insParams.add("Class " + typeClass + "_name");
+								} else {
+									insParams.add("");
+								}
+							}
+						}
+
+						if (insParams.isEmpty() || insParams == null) {
+							insParams.add("");
+						}
+
+						insCode.setParams(insParams);
 					}
 
+					if (lineTxt.contains("descriptor")) {
+						String type = "";
+						int rTypeStartIndex = lineTxt.indexOf(')');
+						int rTypeEndIndex = lineTxt.length();
+						String rType = lineTxt.substring(rTypeStartIndex + 1, rTypeEndIndex);
+
+						if (rType.equals("I")) {
+							type = "Integer";
+						} else if (rType.equals("V")) {
+							type = "Void";
+						} else if (rType.contains(";")) {
+							int classStartIndex = lineTxt.lastIndexOf('/');
+							int classEndIndex = lineTxt.lastIndexOf(';');
+							type = "Class " + lineTxt.substring(classStartIndex + 1, classEndIndex);
+						}
+
+						insCode.setReturnType(type);
+					}
 					if (lineTxt.contains("stack=")) {
 						int[] args = getInitStat(lineTxt);
 						insCode.setStack(args[0]);
@@ -134,10 +179,10 @@ public class JavaToHs {
 					}
 
 					if (isCodeBegin && lineTxt.contains(":")) {
-						code = code + lineTxt + "\n";
+						code = code + translateCode(lineTxt) + "\n";
 					}
 
-					if ((lineTxt.equals("") || lineTxt.isEmpty()||lineTxt.contains("}")) && isCodeBegin) {
+					if ((lineTxt.equals("") || lineTxt.isEmpty() || lineTxt.contains("}")) && isCodeBegin) {
 						isCodeBegin = false;
 						insCode.setCode(code.toString());
 						InscodeMap.put(insKey, insCode);
@@ -157,6 +202,130 @@ public class JavaToHs {
 			e.printStackTrace();
 		}
 
+	}
+
+	public static String translateCode(String jCode) {
+		String jvmCode = "";
+		String value = "";
+		if (jCode.contains("_")) {
+			int start = jCode.indexOf('_');
+			value = jCode.substring(start + 1, jCode.length());
+		}
+		if (jCode.contains("load")) {
+			jvmCode = "        Load" + " " + value + ",";
+		} else if (jCode.contains("store")) {
+			jvmCode = "        Store" + " " + value + ",";
+		} else if (jCode.contains("const")) {
+			jvmCode = "        Push" + " " + value + ",";
+		} else if (jCode.contains("get")) {
+			String num = "";
+			int numStartIndex = jCode.indexOf('#') + 1;
+			int numEndIndex = jCode.indexOf(" ", numStartIndex);
+			num = jCode.substring(numStartIndex, numEndIndex);
+
+			String cname = "";
+			String fname = "";
+			for (Constant constant : list) {
+				if (constant.equals(num)) {
+					String consValue = constant.getValue();
+					int cStartIndex = consValue.indexOf('/');
+					int cEndIndex = consValue.indexOf(cStartIndex, '.');
+					cname = consValue.substring(cStartIndex + 1, cEndIndex);
+
+					int mStartIndex = cEndIndex + 1;
+					int mEndIndex = consValue.indexOf(':');
+					fname = consValue.substring(mStartIndex, mEndIndex);
+				}
+			}
+
+			jvmCode = "        Getfield" + " " + fname + " " + cname + ",";
+		} else if (jCode.contains("put")) {
+			String num = "";
+			int numStartIndex = jCode.indexOf('#') + 1;
+			int numEndIndex = jCode.indexOf(" ", numStartIndex);
+			num = jCode.substring(numStartIndex, numEndIndex);
+
+			String cname = "";
+			String fname = "";
+			for (Constant constant : list) {
+				if (constant.equals(num)) {
+					String consValue = constant.getValue();
+					int cStartIndex = consValue.indexOf('/');
+					int cEndIndex = consValue.indexOf(cStartIndex, '.');
+					cname = consValue.substring(cStartIndex + 1, cEndIndex);
+
+					int fStartIndex = cEndIndex + 1;
+					int fEndIndex = consValue.indexOf(':');
+					fname = consValue.substring(fStartIndex, fEndIndex);
+				}
+			}
+
+			jvmCode = "        Putfield" + " " + fname + " " + cname + ",";
+		} else if (jCode.contains("invoke")) {
+			String num = "";
+			int numStartIndex = jCode.indexOf('#') + 1;
+			int numEndIndex = jCode.indexOf(" ", numStartIndex);
+			num = jCode.substring(numStartIndex, numEndIndex);
+
+			String mname = "";
+			Constant constant = list.get(Integer.valueOf(num) - 1);
+			String consValue = constant.getValue();
+			int mStartIndex = consValue.lastIndexOf('.');
+			int mEndIndex = consValue.indexOf(":");
+			mname = consValue.substring(mStartIndex + 1, mEndIndex);
+
+			if (mname.contains("init")) {
+				jvmCode = jCode;
+			} else {
+				jvmCode = "        Invoke" + " " + mname + " 1" + ",";
+			}
+
+		} else if (jCode.contains("return")) {
+			jvmCode = "        Return";
+		} else if (jCode.contains("pop")) {
+			jvmCode = "        Pop,";
+		} else if (jCode.contains("add")) {
+			jvmCode = "        IAdd,";
+		} else if (jCode.contains("goto")) {
+			String indexNum = "";
+			int valueStartIndex = jCode.indexOf('o');
+			int valueEndIndex = jCode.length();
+			indexNum = jCode.substring(valueStartIndex + 1, valueEndIndex).replaceAll(" ", "");
+			jvmCode = "        Goto" + " " + indexNum + ",";
+		} else if (jCode.contains("cmpne")) {
+			String indexNum = "";
+			int valueStartIndex = jCode.indexOf('e');
+			int valueEndIndex = jCode.length();
+			indexNum = jCode.substring(valueStartIndex + 1, valueEndIndex).replaceAll(" ", "");
+
+			String currentIndex = "";
+			int curEndIndex = jCode.indexOf(':');
+			currentIndex = jCode.substring(0, curEndIndex).replaceAll(" ", "");
+
+			int index = Integer.valueOf(indexNum) - Integer.valueOf(currentIndex);
+			jvmCode = "        CmpEq," + "\n" + "IfFalse" + index + ",";
+		} else if (jCode.contains("throw")) {
+			jvmCode = "        Throw";
+		} else if (jCode.contains("new")) {
+			String num = "";
+			int numStartIndex = jCode.indexOf('#') + 1;
+			int numEndIndex = jCode.indexOf(" ", numStartIndex);
+			num = jCode.substring(numStartIndex, numEndIndex);
+
+			String cname = "";
+			Constant constant = list.get(Integer.valueOf(num));
+			String consValue = constant.getValue();
+			int cStartIndex = consValue.lastIndexOf('/');
+			int cEndIndex = consValue.length();
+			cname = consValue.substring(cStartIndex + 1, cEndIndex);
+
+			jvmCode = "        New" + cname + ",";
+
+		} else {
+			jvmCode = jCode;
+		}
+
+		return jvmCode;
 	}
 
 	public static int[] getInitStat(String line) {
@@ -300,7 +469,7 @@ public class JavaToHs {
 		}
 
 		int methodStartIndex = classEndIndex + 1;
-		int methodEndIndex = s.indexOf(':');
+		int methodEndIndex = s.length();
 		String methodName = s.substring(methodStartIndex, methodEndIndex);
 		methodList.add(methodName);
 
@@ -311,40 +480,9 @@ public class JavaToHs {
 
 	public static void main(String[] args) {
 
-		String filename = "add2";
+		String filename = "add";
 		String filePath = "C:\\workspace\\JvmTest\\src\\code\\" + filename + ".txt";
-		// "res/";
 		readTxtFile(filePath);
-		// List<String> classes = new ArrayList<>();
-
-		// 读写txt测试
-		// try {
-		// for (int i = 0; i < 5; i++) {
-		// creatTxtFile("test123");
-		// writeTxtFile("显示的是追加的信息" + i);
-		// String str = readDate();
-		// System.out.println("*********\n" + str);
-		// }
-		// } catch (IOException e) {
-		// // TODO Auto-generated catch block
-		// e.printStackTrace();
-		// }
-
-		// 单独读取类名
-		// if (c.getKey().equals("Class")) {
-		// String s = c.getValue();
-		// int classStartIndex = s.lastIndexOf('/');
-		// int classEndIndex = s.length();
-		//
-		// String classString = c.getValue().substring(classStartIndex + 1,
-		// classEndIndex);
-		//
-		// classes.add(classString);
-		// }
-		// System.out.println("num=" + c.getNum() + ", key=" + c.getKey() +
-		// ",
-		// value=" + c.getValue());
-		// }
 
 		try {
 			StringBuilder s = new StringBuilder();
@@ -358,12 +496,22 @@ public class JavaToHs {
 			// 常量池的definition
 			for (Entry<String, List<String>> entry : classAndMethodsMap.entrySet()) {
 				if (!entry.getKey().equals("Object")) {
-					s.append(nameDef(entry.getKey()));
+					if (entry.getKey().contains(":")) {
+						int index = entry.getKey().indexOf(':');
+						s.append(nameDef(entry.getKey().substring(0, index)));
+					} else {
+						s.append(nameDef(entry.getKey()));
+					}
 				}
 
 				for (String method : entry.getValue()) {
 					if (!method.contains("init")) {
-						s.append(nameDef(method));
+						if (method.contains(":")) {
+							int index = method.indexOf(':');
+							s.append(nameDef(method.substring(0, index)));
+						} else {
+							s.append(nameDef(method));
+						}
 					}
 				}
 			}
@@ -371,19 +519,116 @@ public class JavaToHs {
 			// 变量名的definition
 			for (Entry<String, List<String>> fieldEntry : classAndfieldsMap.entrySet()) {
 				for (String field : fieldEntry.getValue()) {
-					s.append(nameDef(field));
+					String[] f = field.split(":");
+					s.append(nameDef(f[0]));
 				}
 			}
 
 			// ins的definition
 			for (Entry<String, InsCode> insEntry : InscodeMap.entrySet()) {
-				s.append(InsDef(insEntry.getKey(), insEntry.getValue()));
+				if (!classAndMethodsMap.containsKey(insEntry.getKey())) {
+					s.append(InsDef(insEntry.getKey(), insEntry.getValue()));
+				}
+			}
+
+			// 方法的definition
+			for (Entry<String, List<String>> entry : classAndMethodsMap.entrySet()) {
+				String cname = entry.getKey();
+				s.append("definition " + cname + "_class" + "::" + "\"" + "jvm_method class" + "\"" + "\n");
+				s.append("  where" + "\n");
+				s.append("  \"" + cname + "_class" + " ==" + "\n");
+
+				String supClass = "";
+				for (Entry<String, InsCode> insEntry : InscodeMap.entrySet()) {
+					if (insEntry.getKey().equals(cname)) {
+						String[] codeList = insEntry.getValue().getCode().split("\n");
+						String codeLine = codeList[1];
+						if (codeLine.contains("Object")) {
+							supClass = "Object";
+							break;
+						} else {
+							int supStartIndex = codeLine.lastIndexOf('/');
+							int supEndIndex = codeLine.indexOf('.', supStartIndex);
+							supClass = codeLine.substring(supStartIndex, supEndIndex);
+							break;
+						}
+					}
+				}
+				s.append("    (" + supClass + ", ");
+
+				String fields = "[";
+				for (Entry<String, List<String>> fEntry : classAndfieldsMap.entrySet()) {
+					if (fEntry.getKey().equals(cname)) {
+						for (String string : entry.getValue()) {
+							String[] fs = string.split(":");
+							fields = fields + "(" + fs[0] + ",";
+							if (fs[1].equals("I")) {
+								fields = fields + " Integer" + "),";
+							} else if (fs[1].equals("Z")) {
+								fields = fields + " Boolean" + "),";
+							} else if (fs[1].contains(";")) {
+								int typeStartIndex = fs[1].lastIndexOf('/');
+								int tyepEndIndex = fs[1].length() - 1;
+								String t = fs[1].substring(typeStartIndex + 1, tyepEndIndex);
+								fields = fields + " Class " + t + "),";
+							}
+
+						}
+					}
+				}
+				if (fields.length() > 2) {
+					fields = fields.substring(0, fields.length() - 2) + "],\n";
+				} else {
+					fields = fields + "],\n";
+				}
+				s.append(fields);
+
+				String methods = "[";
+				List<String> methodList = entry.getValue();
+
+				for (String m : methodList) {
+					if (!methods.equals("[")) {
+						methods = methods + ",";
+					}
+					String mName = "";
+					if (!m.isEmpty() && !m.equals("")) {
+						int mIndex = m.indexOf(':');
+						mName = m.substring(0, mIndex);
+						methods = methods + "(" + mName + "_name" + ", ";
+					}
+					for (Entry<String, InsCode> mEntry : InscodeMap.entrySet()) {
+						if (m.equals(mEntry.getKey())) {
+							InsCode mInsCode = mEntry.getValue();
+							String mParams = "[";
+							for (String p : mInsCode.getParams()) {
+								mParams = mParams + p + ", ";
+							}
+							if (mParams.length() > 1) {
+								mParams = mParams.substring(0, mParams.length() - 2);
+							}
+							mParams = mParams + "]";
+							methods = methods + mParams + "," + mInsCode.getReturnType() + ", \n";
+
+							String mbody = "(";
+							mbody = mbody + mInsCode.getStack() + ", " + mInsCode.getLocals() + ", " + mName
+									+ "_ins, [])";
+
+							methods = methods + mbody + ")";
+
+						}
+					}
+				}
+
+				methods = methods + "]";
+
+				s.append(methods + ")\"");
+
 			}
 
 			creatTxtFile(filename);
 			writeTxtFile(s.toString());
-			String str = readDate();
-			System.out.println("*********\n" + str);
+			readDate();
+			System.out.println("*********\n");
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

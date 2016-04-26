@@ -1,20 +1,34 @@
 package code;
 
 public class Add {
-	private static int m;
-	private static int n;
-
-	public static int plus(int i, int j) {
-		int s = i + j;
-		return s;
-	}
 	
-	public static void main(String[] args) {
-		int t;
-		t = plus(1,1);
-		
-		m = 1;
-		n = 1;
-		t = m + n;
-	}
+//	public class Test{
+		public int plus(int i, int j) {
+			int s = 0;
+
+			if (i != j) {
+				s = i;
+			} else {
+				s = j;
+			}
+			return s;
+		}
+//	}
+
+	
+
+//	public static void main(String[] args) {
+////		int[] m = new int[2];
+////		m[0] = 1;
+////		m[1] = 2;
+////		int s = 0;
+////		s = plus(m[0], m[1]);
+//		Add add = new Add();
+//		Add.Test test = add.new Test();
+//		int m = 1;
+//		int n = 1;
+//		int s = 0;
+//		s = test.plus(m, n);
+//		System.out.println("------" + s + "--------");
+//	}
 }

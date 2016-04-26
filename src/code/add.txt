@@ -9,7 +9,6 @@ public class code.Add
 Constant pool:
    #1 = Methodref          #4.#15         // java/lang/Object."<init>":()V
    #2 = Methodref          #3.#16         // code/Add.plus:(II)I
-   #2 = Methodref          #3.#16         // code/Add.plus2:(II)I
    #3 = Class              #17            // code/Add
    #4 = Class              #18            // java/lang/Object
    #5 = Utf8               <init>
